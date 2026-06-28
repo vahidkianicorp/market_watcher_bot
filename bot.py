@@ -2,10 +2,11 @@ import os
 import logging
 from dotenv import load_dotenv
 from telegram import Update
-from telegram.ext import Application, CommandHandler
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
 # Import handlers from the modular handlers package
 from handlers.commands import start_command, help_command
+from handlers.messages import handle_message
 
 # Load environment variables from .env file
 load_dotenv()
@@ -30,9 +31,12 @@ def main() -> None:
     # Build the application with the bot token
     application = Application.builder().token(BOT_TOKEN).build()
 
-    # Register command handlers imported from commands module
+    # Register command handlers
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
+
+    # Register message handler for text and menu choices (excluding commands)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     # Run the bot until Ctrl+C is pressed
     logger.info("Starting Market Watcher Bot...")
