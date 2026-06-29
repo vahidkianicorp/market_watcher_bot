@@ -25,7 +25,7 @@ async def _scrape_digikala_api(url: str) -> str:
         return "❌ Could not extract the product ID from the URL."
     
     product_id = match.group(1)
-    api_endpoint = f"https://api.digikala.com/v1/product/{product_id}/"
+    api_endpoint = f"https://api.digikala.com/v2/product/{product_id}/"
 
     # Fake browser headers to bypass basic anti-bot protection
     headers = {
