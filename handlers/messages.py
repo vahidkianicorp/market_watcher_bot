@@ -2,6 +2,9 @@ import re
 from telegram import Update
 from telegram.ext import ContextTypes
 
+# Import our new scraping module
+from utils.scraper import fetch_price
+
 # Define a standard regex pattern for validating HTTP/HTTPS URLs
 URL_PATTERN = re.compile(
     r"^(?:http)s?://" # Matches http:// or https://
@@ -36,11 +39,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             
             # Clear the state only if the validation passes
             user_data["state"] = None # type: ignore
+
+            # Send a loading message so the user knows we are processing
+            processing_msg = await update.message.reply_text("⏳ Extracting data, please wait...") # type: ignore
             
-            await update.message.reply_text( # type: ignore
+            # Call our async scraper
+            result_text = await fetch_price(product_link) # type: ignore
+            
+            # Edit the processing message with the final result
+            await processing_msg.edit_text(
                 text=(
-                    f"Successfully received! 🎯\n\n"
-                    f"I will start tracking this link:\n{product_link}"
+                    f"Link: {product_link}\n\n"
+                    f"{result_text}"
                 )
             )
         else:
