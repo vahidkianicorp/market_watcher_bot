@@ -7,7 +7,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     Handles the /start command. Sends a welcoming message to the user
     along with a persistent main menu keyboard.
     """
-    user_first_name = update.effective_user.first_name
+    user_first_name = update.effective_user.first_name # type: ignore
 
     # Define the keyboard layout with emojis for better UI
     keyboard = [
@@ -28,7 +28,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         f"Please choose an option from the menu below."
     )
 
-    await update.message.reply_text(
+    await update.message.reply_text( # type: ignore
         text=welcome_message,
         reply_markup=reply_markup
     )
@@ -44,4 +44,4 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "If you want to track a product, click on '➕ Add New Link'."
     )
     
-    await update.message.reply_text(text=help_text)
+    await update.message.reply_text(text=help_text) # type: ignore
