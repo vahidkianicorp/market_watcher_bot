@@ -26,11 +26,21 @@ async def _scrape_digikala_api(url: str) -> str:
     
     product_id = match.group(1)
     api_endpoint = f"https://api.digikala.com/v1/product/{product_id}/"
+
+    # Fake browser headers to bypass basic anti-bot protection
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        ),
+        "Accept": "application/json",
+    }
     
     try:
         # Use httpx.AsyncClient for non-blocking network requests
         async with httpx.AsyncClient() as client:
-            response = await client.get(api_endpoint, timeout=10.0)
+            response = await client.get(api_endpoint, headers=headers, follow_redirects=True, timeout=10.0)
             response.raise_for_status()
             data = response.json()
             
