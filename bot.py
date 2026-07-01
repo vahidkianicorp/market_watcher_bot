@@ -2,11 +2,12 @@ import os
 import logging
 from dotenv import load_dotenv
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, PicklePersistence
 
 # Import handlers from the modular handlers package
 from handlers.commands import start_command, help_command
 from handlers.messages import handle_message
+from handlers.jobs import check_prices_job
 
 # Load environment variables from .env file
 load_dotenv()
@@ -22,24 +23,30 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     """
-    Initializes and starts the Telegram bot application.
+    Initializes and starts the Telegram bot application with persistence and job queue.
     """
     if not BOT_TOKEN:
         logger.error("TELEGRAM_BOT_TOKEN is missing from environment variables!")
         return
 
-    # Build the application with the bot token
-    application = Application.builder().token(BOT_TOKEN).build()
+    # Setup persistence to save user_data to a local file automatically
+    persistence = PicklePersistence(filepath="market_watcher_data.pickle")
 
-    # Register command handlers
+    # Build the application with persistence
+    application = Application.builder().token(BOT_TOKEN).persistence(persistence).build()
+
+    # Register command and message handlers
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
-
-    # Register message handler for text and menu choices (excluding commands)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    # Run the bot until Ctrl+C is pressed
-    logger.info("Starting Market Watcher Bot...")
+    # Setup JobQueue to check prices periodically
+    job_queue = application.job_queue
+    # Run the background job every 60 seconds, starting 10 seconds after bot boot
+    job_queue.run_repeating(check_prices_job, interval=60, first=10) # type: ignore
+
+    # Run the bot
+    logger.info("Starting Market Watcher Bot with JobQueue and Persistence...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
