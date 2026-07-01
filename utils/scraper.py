@@ -4,17 +4,16 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-async def fetch_price(url: str) -> str:
+async def fetch_price(url: str) -> dict:
     """
-    Main entry point for scraping. Routes the URL to the appropriate scraper.
+    Main entry point for scraping. Returns a dictionary with status and data.
     """
     if "digikala.com" in url:
         return await _scrape_digikala_api(url)
     
-    # Placeholder for other websites using BeautifulSoup in the future
-    return "❌ Scraping for this domain is not supported yet."
+    return {"success": False, "error_key": "err_not_found"}
 
-async def _scrape_digikala_api(url: str) -> str:
+async def _scrape_digikala_api(url: str) -> dict:
     """
     Extracts the product price using Digikala's public JSON API.
     Bypasses HTML parsing and JavaScript rendering for maximum speed.
@@ -22,7 +21,7 @@ async def _scrape_digikala_api(url: str) -> str:
     # Extract the DKP ID using Regex
     match = re.search(r"dkp-(\d+)", url, re.IGNORECASE)
     if not match:
-        return "❌ Could not extract the product ID from the URL."
+        return {"success": False, "error_key": "err_not_found"}
     
     product_id = match.group(1)
     api_endpoint = f"https://api.digikala.com/v2/product/{product_id}/"
@@ -49,24 +48,19 @@ async def _scrape_digikala_api(url: str) -> str:
             status = product_data.get("status")
             
             if status != "marketable":
-                return "⚠️ This product is currently out of stock or unavailable."
+                return {"success": False, "error_key": "err_out_of_stock"}
             
             # Digikala stores the active price in the default_variant object
             default_variant = product_data.get("default_variant", {})
             price = default_variant.get("price", {}).get("selling_price")
             
             if price:
-                # Digikala API strictly returns prices in Rials. Convert to Tomans.
                 price_in_tomans = int(price) // 10
+                # Return raw formatted number
+                return {"success": True, "price": f"{price_in_tomans:,}"}
                 
-                # Format price with commas (e.g., 1,500,000)
-                return f"✅ Current Price: {price_in_tomans:,} Tomans"
-            
-            return "❌ Price not found in the product data."
+            return {"success": False, "error_key": "err_no_price"}
             
     except httpx.HTTPError as e:
-        logger.error(f"HTTP Error while connecting to Digikala API: {e}")
-        return "❌ Connection error while trying to fetch data from the store."
-    except Exception as e:
-        logger.error(f"Unexpected error in scraper: {e}")
-        return "❌ An unexpected error occurred while processing the price."
+        logger.error(f"API HTTP Error: {e}")
+        return {"success": False, "error_key": "err_connection"}
