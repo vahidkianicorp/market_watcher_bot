@@ -1,5 +1,5 @@
 import re
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 # Import our new scraping module
@@ -18,50 +18,73 @@ URL_PATTERN = re.compile(
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Handles incoming text messages, menu button clicks, and user states.
-    Validates user input against a URL pattern before accepting it.
     """
-    user_text = update.message.text # type: ignore
+    user_text = update.message.text #type: ignore
     user_data = context.user_data
 
-    # Check if the user clicked the "Add New Link" button
+    # 1. Action for "Add New Link"
     if user_text == "➕ Add New Link":
-        user_data["state"] = "AWAITING_LINK" # type: ignore
-        await update.message.reply_text( # type: ignore
+        user_data["state"] = "AWAITING_LINK" #type: ignore
+        await update.message.reply_text( #type: ignore
             text="Please send me the valid product URL link you want to track."
         )
         
-    # Check if the user is currently expected to send a link
-    elif user_data.get("state") == "AWAITING_LINK": # type: ignore
+    # 2. Action for "My Links"
+    elif user_text == "📋 My Links":
+        links = user_data.get("links", []) #type: ignore
         
-        # Validate the input against the Regex pattern
-        if URL_PATTERN.match(user_text): # type: ignore
+        if not links:
+            await update.message.reply_text("ℹ️ Your tracking list is currently empty.") #type: ignore
+            return
+            
+        await update.message.reply_text("📋 **Your Tracked Products:**") #type: ignore
+        
+        # Loop through each link and send it with a unique "Delete" inline button
+        for index, item in enumerate(links):
+            url = item["url"]
+            last_price = item["last_price_text"]
+            
+            # Truncate long URLs just for clean appearance in chat
+            display_url = url if len(url) < 40 else url[:37] + "..."
+            
+            # The callback_data will look like "delete_0", "delete_1", etc.
+            keyboard = [[InlineKeyboardButton("❌ Delete from List", callback_data=f"delete_{index}")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            msg_text = f"🔗 Link: {display_url}\n\nStatus: {last_price}"
+            await update.message.reply_text(text=msg_text, reply_markup=reply_markup) #type: ignore
+            
+    # 3. Action for "Help"
+    elif user_text == "ℹ️ Help":
+        help_text = (
+            "🤖 Market Watcher Bot Help:\n\n"
+            "Use the menu below to navigate.\n"
+            "• '➕ Add New Link' to track a new product.\n"
+            "• '📋 My Links' to see and manage your list."
+        )
+        await update.message.reply_text(text=help_text) #type: ignore
+
+    # 4. Action when waiting for a URL link
+    elif user_data.get("state") == "AWAITING_LINK": #type: ignore
+        if URL_PATTERN.match(user_text): #type: ignore
             product_link = user_text
+            user_data["state"] = None #type: ignore
             
-            # Clear the state only if the validation passes
-            user_data["state"] = None # type: ignore
-
-            # Initialize the links list for the user if it doesn't exist
-            if "links" not in user_data: # type: ignore
-                user_data["links"] = [] # type: ignore
-
-            # Prevent adding duplicate links
-            if any(item["url"] == product_link for item in user_data["links"]): # type: ignore
-                await update.message.reply_text("⚠️ You are already tracking this product!") # type: ignore
+            if "links" not in user_data: #type: ignore
+                user_data["links"] = [] #type: ignore
+                
+            if any(item["url"] == product_link for item in user_data["links"]): #type: ignore
+                await update.message.reply_text("⚠️ You are already tracking this product!") #type: ignore
                 return
-
-            # Send a loading message so the user knows we are processing
-            processing_msg = await update.message.reply_text("⏳ Extracting data, please wait...") # type: ignore
             
-            # Call our async scraper
-            result_text = await fetch_price(product_link) # type: ignore
+            processing_msg = await update.message.reply_text("⏳ Extracting data, please wait...") #type: ignore
+            result_text = await fetch_price(product_link) #type: ignore
             
-            # Save the link and initial price to memory (Persistence will save it to disk)
-            user_data["links"].append({ # type: ignore
+            user_data["links"].append({ #type: ignore
                 "url": product_link,
                 "last_price_text": result_text
             })
-
-            # Edit the processing message with the final result
+            
             await processing_msg.edit_text(
                 text=(
                     f"Successfully added to your tracking list! 🎯\n\n"
@@ -70,16 +93,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 )
             )
         else:
-            # If invalid, keep the state as "AWAITING_LINK" and ask again
-            await update.message.reply_text( # type: ignore
-                text=(
-                    "❌ Invalid URL format!\n"
-                    "Please send a valid internet link (e.g., https://example.com)."
-                )
+            await update.message.reply_text( #type: ignore
+                text="❌ Invalid URL format! Please send a valid internet link."
             )
             
     else:
-        # Default response for unhandled text messages
-        await update.message.reply_text( # type: ignore
-            text="Please use the menu buttons to navigate options."
-        )
+        await update.message.reply_text(text="Please use the menu buttons to navigate options.") #type: ignore
