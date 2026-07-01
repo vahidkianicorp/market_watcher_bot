@@ -56,8 +56,11 @@ async def _scrape_digikala_api(url: str) -> str:
             price = default_variant.get("price", {}).get("selling_price")
             
             if price:
+                # Digikala API strictly returns prices in Rials. Convert to Tomans.
+                price_in_tomans = int(price) // 10
+                
                 # Format price with commas (e.g., 1,500,000)
-                return f"✅ Current Price: {price:,} Tomans"
+                return f"✅ Current Price: {price_in_tomans:,} Tomans"
             
             return "❌ Price not found in the product data."
             
