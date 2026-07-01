@@ -40,15 +40,31 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             # Clear the state only if the validation passes
             user_data["state"] = None # type: ignore
 
+            # Initialize the links list for the user if it doesn't exist
+            if "links" not in user_data: # type: ignore
+                user_data["links"] = [] # type: ignore
+
+            # Prevent adding duplicate links
+            if any(item["url"] == product_link for item in user_data["links"]): # type: ignore
+                await update.message.reply_text("⚠️ You are already tracking this product!") # type: ignore
+                return
+
             # Send a loading message so the user knows we are processing
             processing_msg = await update.message.reply_text("⏳ Extracting data, please wait...") # type: ignore
             
             # Call our async scraper
             result_text = await fetch_price(product_link) # type: ignore
             
+            # Save the link and initial price to memory (Persistence will save it to disk)
+            user_data["links"].append({ # type: ignore
+                "url": product_link,
+                "last_price_text": result_text
+            })
+
             # Edit the processing message with the final result
             await processing_msg.edit_text(
                 text=(
+                    f"Successfully added to your tracking list! 🎯\n\n"
                     f"Link: {product_link}\n\n"
                     f"{result_text}"
                 )
