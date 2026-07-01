@@ -1,6 +1,8 @@
 import logging
 from telegram import Update
 from telegram.ext import ContextTypes
+from utils.i18n import get_text
+from handlers.commands import get_main_menu_keyboard
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +17,26 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     
     data = query.data #type: ignore
     user_data = context.user_data
+
+    # Handle Language Selection
+    if data.startswith("setlang_"): #type: ignore
+        selected_lang = data.split("_")[1] #type: ignore
+        user_data["language"] = selected_lang #type: ignore
+
+        await query.message.delete() #type: ignore
+        
+        user_first_name = update.effective_user.first_name #type: ignore
+        welcome_message = get_text(selected_lang, "welcome", name=user_first_name)
+        
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id, #type: ignore
+            text=welcome_message,
+            reply_markup=get_main_menu_keyboard(selected_lang)
+        )
+        return
+
+    # Handle Link Deletion
+    lang = user_data.get("language", "en") #type: ignore
     links = user_data.get("links", []) #type: ignore
     
     if data.startswith("delete_"): #type: ignore
@@ -28,15 +50,11 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 # Mark persistence as modified so ptb knows it needs to re-save to the pickle file
                 user_data["links"] = links #type: ignore
                 
-                logger.info(f"User {update.effective_user.id} deleted link index {index_to_delete}") #type: ignore
-                
-                # Edit the message to show it was successfully deleted
-                await query.edit_message_text( #type: ignore
-                    text=f"🗑️ Product successfully removed from your list!\n\nLink: {removed_item['url']}"
-                )
+                success_text = get_text(lang, "del_success", url=removed_item["url"])
+                await query.edit_message_text(text=success_text) #type: ignore
             else:
-                await query.edit_message_text(text="⚠️ This item could not be found or was already deleted.") #type: ignore
+                await query.edit_message_text(text=get_text(lang, "del_not_found")) #type: ignore
                 
         except (IndexError, ValueError) as e:
-            logger.error(f"Error executing callback delete action: {e}")
-            await query.edit_message_text(text="❌ An error occurred while trying to remove this item.") #type: ignore
+            logger.error(f"Callback deletion error: {e}")
+            await query.edit_message_text(text=get_text(lang, "del_error")) #type: ignore
