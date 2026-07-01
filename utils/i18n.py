@@ -25,6 +25,7 @@ def get_text(lang: str, key: str, **kwargs) -> str:
     """
     Retrieves the translated text for a given key and language.
     Falls back to English if the key is missing in the target language.
+    Automatically applies Right-to-Left Mark (RLM) for Persian text.
     """
     if lang not in TRANSLATIONS:
         lang = "en"
@@ -36,7 +37,12 @@ def get_text(lang: str, key: str, **kwargs) -> str:
         text = TRANSLATIONS.get("en", {}).get(key, key)
         
     if kwargs:
-        return text.format(**kwargs)
+        text = text.format(**kwargs)
+        
+    # Apply Unicode Right-to-Left Mark (RLM) to force correct BiDi rendering
+    if lang == "fa":
+        text = f"\u200F{text}\u200F"
+        
     return text
 
 # Initialize translations on module load
